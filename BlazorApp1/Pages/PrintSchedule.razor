@@ -1,0 +1,450 @@
+﻿@page "/print-schedule"
+@inject NavigationManager Navigation
+@inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
+@inject BlazorApp1.DataConsumers.StudentConsumer StudentConsumer
+@inject IJSRuntime JS
+<style>
+    /* Animation */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 25%;
+        width: 50%;
+        height: 100%;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+
+    /* Dashboard header */
+    .dashboard-header {
+        text-align: center;
+        color: #34495e;
+        font-size: 2em;
+        margin-bottom: 20px;
+        animation: fadeIn 1s ease-in-out;
+    }
+
+    /* Student info container */
+    .student-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        width: 70%;
+        margin: 20px auto;
+        background-color: #f9fafb;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        animation: scaleUp 0.6s ease-in-out;
+    }
+
+    /* Info item style */
+    .info-item {
+        font-size: 1.2em;
+        color: #555;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    /* Table style */
+    .days-table {
+        width: 80%;
+        margin: 20px auto;
+        border-collapse: collapse;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        animation: fadeIn 1s ease-in-out;
+    }
+    .days-table th, .days-table td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: center;
+        font-size: 1.1em;
+    }
+    .days-table th {
+        background-color: #4CAF50;
+        color: white;
+        font-size: 1.15em;
+        text-transform: uppercase;
+    }
+    .days-table td {
+        background-color: #fdfdfd;
+    }
+    .days-table td:hover {
+        background-color: #f1f8ff;
+        transition: background-color 0.3s;
+    }
+
+    /* Select dropdown */
+    select {
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        background-color: #f1f1f1;
+        transition: 0.3s;
+    }
+    select:hover {
+        background-color: #e2e2e2;
+    }
+
+    /* Button container */
+    .button-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 25px;
+    }
+
+    /* Confirm button */
+    .btn-success {
+        padding: 12px 25px;
+        font-size: 1.2em;
+        color: #fff;
+        background-color: #28a745;
+        border: none;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: scaleUp 0.6s ease-in-out;
+    }
+    .btn-success:hover {
+        background-color: #218838;
+        transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Delete button */
+    .btn-danger {
+        padding: 5px 12px;
+        color: #fff;
+        background-color: #dc3545;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+</style>
+<h3 class="dashboard-header">Online Registration</h3>
+
+<div class="student-info">
+    <div class="info-item"><strong>ID:</strong> @Id</div>
+    <div class="info-item"><strong>Name:</strong> @Name</div>
+    <div class="info-item"><strong>Age:</strong> @Age</div>
+    <div class="info-item"><strong>GPA:</strong> @GPA</div>
+    <div class="info-item"><strong>Total Achieved:</strong> @TotAchieved</div>
+    <div class="info-item"><strong>Term:</strong> @Term</div>
+    <div class="info-item"><strong>Department Name:</strong> @DepName</div>
+    <div class="info-item"><strong>Sponsor:</strong> @Sponser</div>
+    <div class="info-item"><strong>College:</strong> @College</div>
+    <div class="info-item"><strong>Total Crd Hours:</strong> @(selectedGroups.Keys.Count * 3) </div>
+</div>
+
+<table class="days-table">
+    <thead>
+        <tr>
+            <th>Day</th>
+            <th>1</th>
+            <th>2</th>
+            <th>3</th>
+            <th>4</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var day in daysOfWeek)
+        {
+            <tr>
+                <td>@day</td>
+                @for (int slot = 1; slot <= 4; slot++)
+                {
+                    <td>@((MarkupString)daySlots[day][slot - 1])</td> <!-- Directly accessing daySlots -->
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+@if (isRegistrationSuccessful)
+{
+    <div class="modal">
+        <div class="modal-content">
+            <h3>Registration Successful!</h3>
+            <p>Your courses have been successfully registered.</p>
+            <button @onclick="NavigateToConfirmationPage">Go to Confirmation</button>
+        </div>
+    </div>
+}
+<div class="button-container margin">
+    <button class="btn btn-success" >Print</button>
+</div>
+
+
+
+@code {
+
+    // Properties to hold student data
+    private int Id { get; set; }
+    private string Name { get; set; }
+    private int Age { get; set; }
+    private float GPA { get; set; }
+    private int TotAchieved { get; set; }
+    private int Term { get; set; }
+    private string DepName { get; set; }
+    private string Sponser { get; set; }
+    private string College { get; set; }
+    private string NumberofCredit { get; set; }
+    private bool Registered { get; set; }
+    private List<ScheduleGroupViewModel> a { get; set; }
+    private List<ClassLibrary1.RegisteredCourseDto> c { get; set; }
+    private bool isRegistrationSuccessful = false;
+    private Dictionary<int, int> selectedGroups = new Dictionary<int, int>(); // CourseId -> CourseGroupId
+    private List<string> daysOfWeek = new List<string> { "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" };
+    private Dictionary<string, string[]> daySlots = new Dictionary<string, string[]>
+{
+    { "Saturday", new string[4] { "", "", "", "" } },
+    { "Sunday", new string[4] { "", "", "", "" } },
+    { "Monday", new string[4] { "", "", "", "" } },
+    { "Tuesday", new string[4] { "", "", "", "" } },
+    { "Wednesday", new string[4] { "", "", "", "" } },
+    { "Thursday", new string[4] { "", "", "", "" } },
+    { "Friday", new string[4] { "", "", "", "" } }
+};
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Retrieve query parameters from the URL
+        var uri = new Uri(UriHelper.Uri);
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+        Id = int.Parse(queryParams["id"]);
+        Name = queryParams["name"];
+        Age = int.Parse(queryParams["age"]);
+        GPA = float.Parse(queryParams["gpa"]);
+        TotAchieved = int.Parse(queryParams["totAchieved"]);
+        Term = int.Parse(queryParams["term"]);
+        DepName = queryParams["depName"];
+        Sponser = queryParams["sponser"];
+        College = queryParams["college"];
+        Registered = queryParams["registered"] == "True" ? true : false;
+        a = System.Text.Json.JsonSerializer.Deserialize<List<ScheduleGroupViewModel>>(queryParams["schedule"]);
+        if (Registered)
+        {
+            try
+            {
+                c = (await StudentConsumer.GetRegisteredCourses(Id)).ToList();
+                if (c != null)
+                {
+                    foreach (var x in c)
+                    {
+                        selectedGroups[x.CourseId] = x.GroupId;
+                        UpdateDaySlots(x.GroupId, x.CourseId, "Add");
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+        }
+
+
+    }
+    private void NavigateToConfirmationPage()
+    {
+        isRegistrationSuccessful = false;
+    }
+    private async Task ConfirmRegistration()
+    {
+        // Create a new instance of addSchedule
+
+        var addedd = new List<ClassLibrary1.addSchedule>();
+
+        foreach (var dataEntry in selectedGroups)
+        {
+            var selected = new ClassLibrary1.addSchedule
+                {
+                    studentId = Id,
+                    CourseId = dataEntry.Key,
+                    GroupId = dataEntry.Value
+                };
+            addedd.Add(selected);
+        }
+        try
+        {
+            var response = await StudentConsumer.PostRegisteredCourses(addedd);
+            isRegistrationSuccessful = true;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+
+
+
+
+        // Logic to handle navigation or save data can go here
+        // For example, you could pass this data to another component, save it to a database, or serialize it as needed.
+        //Navigation.NavigateTo("/confirmation");
+    }
+
+    public class ScheduleviewModel
+    {
+        public string CourseName { get; set; }
+        public int CourseId { get; set; }
+        public string CoursePeriod { get; set; }
+        public int CourseGroupId { get; set; }
+        public string DoctorName { get; set; }
+        public string TAName { get; set; }
+        public string Lecday { get; set; }
+        public string Secday { get; set; }
+        public int LecSlot { get; set; }
+        public int SecSlot { get; set; }
+        public int CourseCreditHours { get; set; }
+        public int Id { get; set; }
+        public int capacity { get; set; }
+    }
+    private void OnGroupSelected(ChangeEventArgs e, ScheduleGroupViewModel group)
+    {
+        int selectedGroupId = int.Parse(e.Value.ToString());
+        if (selectedGroupId == 0)
+        {
+            //Console.WriteLine('0');
+            //selectedGroups.Remove(group.CourseId);
+            UpdateDaySlots(0, group.CourseId, "Delete");
+        }
+        else if (selectedGroups.Count == 6)
+        {
+            JS.InvokeVoidAsync("alert", "Max 18 Credit Hours ");
+
+        }
+        else
+        {
+            selectedGroups[group.CourseId] = selectedGroupId;
+            if (selectedGroups.Keys.Contains(group.CourseId))
+            {
+                UpdateDaySlots(selectedGroupId, group.CourseId, "Update");
+            }
+            else
+            {
+
+                UpdateDaySlots(selectedGroupId, group.CourseId, "Add");
+            }
+        }
+        //foreach (var kvp in selectedGroups)
+        //{
+        //  Console.WriteLine($"Key: {kvp.Key}");
+        // Console.WriteLine("Values: " + string.Join(", ", kvp.Value));
+        //}
+        // Update daySlots when a group is selected
+
+
+    }
+    private void UpdateDaySlots(int groupid, int courseid, string mode)
+    {
+        var group = a.FirstOrDefault(g => g.CourseId == courseid);
+        if (group == null) return;
+
+        var schedule = group.Schedules.FirstOrDefault(s => s.CourseGroupId == groupid);
+        if (schedule == null) return;
+
+        // Remove existing course entry if updating
+        if (mode == "Update")
+        {
+            foreach (var day in daysOfWeek)
+            {
+                for (int slot = 0; slot < daySlots[day].Length; slot++)
+                {
+                    if (daySlots[day][slot].StartsWith(group.CourseName))
+                    {
+                        daySlots[day][slot] = ""; // Clear the slot
+                    }
+                }
+            }
+        }
+
+        // Add course name to new slots if no conflict
+        if (daySlots[schedule.Lecday][schedule.LecSlot - 1] == "" && daySlots[schedule.Secday][schedule.SecSlot - 1] == "")
+        {
+            if (schedule.capacity > 0)
+            {
+                daySlots[schedule.Lecday][schedule.LecSlot - 1] = $"{group.CourseName} <br/> {schedule.DoctorName} <br/> Lecture";
+                daySlots[schedule.Secday][schedule.SecSlot - 1] = $"{group.CourseName} <br/> {schedule.TAName} <br/> Section";
+                Console.WriteLine(schedule.capacity);
+            }
+            else
+            {
+                JS.InvokeVoidAsync("alert", "No Available Capacity");
+                selectedGroups.Remove(courseid);
+                return;
+            }
+
+        }
+        else
+        {
+            JS.InvokeVoidAsync("alert", "Course Crashh");
+            selectedGroups.Remove(courseid);
+        }
+
+        // Optional: Debug output to console
+        foreach (var kvp in daySlots)
+        {
+            // Console.WriteLine($"Key: {kvp.Key}");
+            // Console.WriteLine("Values: " + string.Join(", ", kvp.Value));
+        }
+
+
+
+    }
+    private void DeleteCourse(string CourseName, int CourseId)
+    {
+        foreach (var day in daysOfWeek)
+        {
+            for (int slot = 0; slot < daySlots[day].Length; slot++)
+            {
+                if (daySlots[day][slot].StartsWith(CourseName))
+                {
+                    daySlots[day][slot] = ""; // Clear the slot
+                }
+            }
+        }
+        selectedGroups.Remove(CourseId);
+    }
+
+
+    public class ScheduleGroupViewModel
+    {
+        public int CourseCreditHours { get; set; }
+        public string CourseName { get; set; }
+        public string CoursePeriod { get; set; }
+
+        public int CourseId { get; set; }
+        public List<ScheduleviewModel> Schedules { get; set; }
+    }
+    public class addSchedule
+    {
+        public int studentId { get; set; }
+        public int GroupId { get; set; }
+        public int CourseId { get; set; }
+
+    }
+    public class RegisteredCourseDto
+    {
+        public int CourseId { get; set; }
+        public int GroupId { get; set; }
+    }
+
+}

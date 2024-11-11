@@ -1,0 +1,141 @@
+﻿@page "/student-dashboard/{Id:int}/{Name}/{Age:int}/{GPA:float}/{TotAchieved:int}/{Term:int}/{DepName}/{Sponser}/{College}/{Schedule:bool}"
+@inject NavigationManager Navigation
+@inject BlazorApp1.DataConsumers.StudentConsumer StudentConsumer
+@inject IJSRuntime JS
+
+<h3 class="dashboard-header">Student Dashboard</h3>
+
+<div class="student-info">
+    <div class="info-item"><strong>ID:</strong> @Id</div>
+    <div class="info-item"><strong>Name:</strong> @Name</div>
+    <div class="info-item"><strong>Age:</strong> @Age</div>
+    <div class="info-item"><strong>GPA:</strong> @GPA</div>
+    <div class="info-item"><strong>Total Achieved:</strong> @TotAchieved</div>
+    <div class="info-item"><strong>Term:</strong> @Term</div>
+    <div class="info-item"><strong>Department Name:</strong> @DepName</div>
+    <div class="info-item"><strong>Sponsor:</strong> @Sponser</div>
+    <div class="info-item"><strong>College:</strong> @College</div>
+</div>
+
+<div class="button-container">
+    <button class="btn btn-success" @onclick="HandleRegistration">Online Registration</button>
+    <button class="btn btn-primary" @onclick="HandlePrintSchedule">Print Schedule</button>
+</div>
+
+<style>
+    .dashboard-header {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 20px;
+    }
+
+    .student-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 60%;
+        margin: 0 auto;
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-item {
+        font-size: 1.1em;
+        color: #34495e;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .button-container {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .btn-success, .btn-primary {
+        padding: 10px 20px;
+        font-size: 1.1em;
+    }
+</style>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string Name { get; set; }
+    [Parameter] public int Age { get; set; }
+    [Parameter] public float GPA { get; set; }
+    [Parameter] public int TotAchieved { get; set; }
+    [Parameter] public int Term { get; set; }
+    [Parameter] public string DepName { get; set; }
+    [Parameter] public string Sponser { get; set; }
+    [Parameter] public string College { get; set; }
+    [Parameter] public bool Schedule { get; set; }
+
+    private async Task HandleRegistration()
+    {
+
+
+        if (Term < 10 && DateTime.Today < new DateTime(2024, 11, 14))
+        {
+            try
+            {
+
+                // Fetch available courses for the student
+                var schedule = await StudentConsumer.GetAvailableCourses(Id);
+
+                // Assuming schedule is not null and contains data
+                if (schedule != null)
+                {
+
+                    var registrationUrl = $"/online-registration?id={Id}&name={Name}&age={Age}&gpa={GPA}&totAchieved={TotAchieved}&term={Term}&depName={DepName}&sponser={Sponser}&college={College}&registered={Schedule}&schedule={Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(schedule))}"; // Pass true for schedule
+                    Navigation.NavigateTo(registrationUrl);
+
+
+                }
+                else
+                {
+                    ShowNoScheduleAlert();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle any exceptions that occur while fetching the schedule
+                ShowErrorAlert($"Failed to retrieve available courses: {ex.Message}");
+            }
+        }
+        else
+        {
+            JS.InvokeVoidAsync("alert", "No Registration available for this student.");
+        }
+    }
+
+    private async Task HandlePrintSchedule()
+    {
+        if (Schedule)
+        {
+             var schedule = await StudentConsumer.GetAvailableCourses(Id);
+            // If schedule is available, navigate to the print schedule page
+                var registrationUrl = $"/print-schedule?id={Id}&name={Name}&age={Age}&gpa={GPA}&totAchieved={TotAchieved}&term={Term}&depName={DepName}&sponser={Sponser}&college={College}&registered={Schedule}&schedule={Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(schedule))}"; // Pass true for schedule
+
+            Navigation.NavigateTo(registrationUrl);
+        }
+        else
+        {
+            // Show an alert if no schedule is available
+            ShowNoScheduleAlert();
+        }
+    }
+
+    private void ShowNoScheduleAlert()
+    {
+        // JavaScript interop to show alert
+        JS.InvokeVoidAsync("alert", "No schedule available for this student.");
+    }
+
+    private void ShowErrorAlert(string message)
+    {
+        JS.InvokeVoidAsync("alert", message);
+    }
+}
